@@ -1,3 +1,25 @@
+/*
+
+Tehtävä koostuu kolmesta osiosta:
+- API laajennuksen suunnittelu,
+- API laajennuksen toteutus,
+- Virheiden hallinta ja testitapausten luonti.
+
+Tehtävänanto kokonaisuudessaan:
+```
+1. Suunnittele rajapinnan laajennos jo aloitettuun nodejs projektiin:
+- Tee OpenAPI-spesifikaation mukainen dokumentaatio RESTful rajapinnalle.
+- REST-rajapinnan tulee sisältää endpointit HTTP-metodeille GET, POST, PUT ja DELETE
+
+2. Toteuta suunnittelemasi REST-rajapinnan laajennos:
+- Toteuta suunnittelemasi laajennos Nodejs:llä niin, että REST-rajapintasi endpointit tukevat CRUD toiminnallisuuksia, vastaten asianmukaisia HTTP-metodeja.
+
+3. Lisää mukaan virheiden hallinta ja luo testitapaukset rajapinnan toimivuuden toteamiseksi:
+- Virheideiden hallinta: rajapinta ei "kaadu" käsittelemättömään virheeseen, client saa asianmukaisen HTTP-statuskoodin mahdollisen virheen ilmetessä
+```.
+
+ */
+
 import express, { Router } from "express";
 import cookieParser from "cookie-parser";
 import { db } from "./database/sqlite.js";
@@ -188,6 +210,11 @@ router.post('/user/login', (req, res) => {
     })
 
 })
+
+router.post('/user/logout', authenticate, (req, res) => {
+    res.clearCookie('accessToken');
+    res.send('Logged out successfully');
+});
 
 app.use('/api/v1', router)
 
