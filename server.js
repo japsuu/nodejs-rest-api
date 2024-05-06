@@ -43,16 +43,19 @@ const saltRounds = 10
  */
 
 router.get('/user', authenticate, adminOnly, (req, res) => {
+    try{
+        db.all('SELECT id, username, age, role FROM user', [], (err, rows) => {
 
-    db.all('SELECT id, username, age, role FROM user', [], (err, rows) => {
+            if (err) {
+                return res.status(404).send('Users not found')
+            }
 
-        if (err) {
-            return res.status(404).send('Users not found')
-        }
-
-        res.send(JSON.stringify(rows))
-    })
-
+            res.send(JSON.stringify(rows))
+        })
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 })
 
 router.get('/user/account', authenticate, (req, res)=>{
@@ -64,16 +67,19 @@ router.get('/user/account', authenticate, (req, res)=>{
 router.get('/user/:id', (req, res) => {
     const id = req.params.id
 
-    db.get('SELECT id, username, age, role FROM user WHERE id = ?', [id], (err, row) => {
+    try {
+        db.get('SELECT id, username, age, role FROM user WHERE id = ?', [id], (err, row) => {
 
-        if (err) {
-            return res.status(404).send('User not found')
-        }
+            if (err) {
+                return res.status(404).send('User not found')
+            }
 
-        res.send(JSON.stringify(row))
-    })
-
-    // res.send("Käyttäjän tiedot id:llä: " + id)
+            res.send(JSON.stringify(row))
+        })
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 })
 
 /*
@@ -87,33 +93,23 @@ router.post('/user', async (req, res) => {
         return res.status(400).send("Tarkista tiedot")
     }
 
-    const hashedPassword = await hash(password, saltRounds)
+    try {
+        const hashedPassword = await hash(password, saltRounds)
 
- 
+        const stmt = db.prepare("INSERT INTO user VALUES (NULL, ?, ?, ?, NULL, ?)")
 
-    const stmt = db.prepare("INSERT INTO user VALUES (NULL, ?, ?, ?, NULL, ?)")
+        stmt.run(username, hashedPassword, age, role, (err)=>{
+            if(err){
+                return res.status(400).json({
+                    error: "Kokeile toista käyttäjänimeä"
+                })
+            }
 
-
-    stmt.run(username, hashedPassword, age, role, (err)=>{
-
-        if(err){
-            // Ei tehdä tuotantoympäristössä!
-           /*  return res.status(400).json({
-                error: err
-            }) */
-
-            return res.status(400).json({
-                error: "Kokeile toista käyttäjänimeä"
-            }) 
-        }
-
-        
-        res.status(201).send('Käyttäjä luotu onnistuneesti')
-        
-    })
-    
-  
-
+            res.status(201).send('Käyttäjä luotu onnistuneesti')
+        })
+    } catch (err) {
+        res.status(500).send('Server error')
+    }
 })
 
 router.post('/user/login', (req, res) => {
@@ -124,54 +120,55 @@ router.post('/user/login', (req, res) => {
         return res.status(400).send()
     }
 
-    db.get('SELECT id, password, role FROM user WHERE username = ?', [username], async (err, row) => {
+    try{
+        db.get('SELECT id, password, role FROM user WHERE username = ?', [username], async (err, row) => {
 
-        if (err || !row) {
-            return res.status(400).send()
-        }
+            if (err || !row) {
+                return res.status(400).send()
+            }
 
-        const isAuthenticated = await compare(password, row.password)
+            const isAuthenticated = await compare(password, row.password)
 
-        if (isAuthenticated) {
+            if (isAuthenticated) {
+                const jti = crypto.randomUUID()
 
-            const jti = crypto.randomUUID()
-
-
-
-            const token = jwt.sign({
-                role: row
-            }, JWT_SECRET, {
-                expiresIn: '1h',
-                jwtid: jti
-            })
-
-            db.serialize(() => {
-
-                const stmt = db.prepare("UPDATE user SET jti = ? WHERE id = ?")
-
-                stmt.run(jti, row.id)
-
-                stmt.finalize()
-
-                res.cookie('accessToken', token, {
-                    httpOnly: true,
-                    sameSite: "lax",
-                    secure: true
+                const token = jwt.sign({
+                    role: row
+                }, JWT_SECRET, {
+                    expiresIn: '1h',
+                    jwtid: jti
                 })
 
-                // res.setHeader('Set-Cookie', 'accessToken=Bearer ' + token + "; HttpOnly;")
+                db.serialize(() => {
 
-                return res.send("Kirjautuminen onnistui")
+                    const stmt = db.prepare("UPDATE user SET jti = ? WHERE id = ?")
 
-            })
+                    stmt.run(jti, row.id)
+
+                    stmt.finalize()
+
+                    res.cookie('accessToken', token, {
+                        httpOnly: true,
+                        sameSite: "lax",
+                        secure: true
+                    })
+
+                    // res.setHeader('Set-Cookie', 'accessToken=Bearer ' + token + "; HttpOnly;")
+
+                    return res.send("Kirjautuminen onnistui")
+
+                })
 
 
 
-        } else {
-            return res.status(400).send()
-        }
-    })
-
+            } else {
+                return res.status(400).send()
+            }
+        })
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 })
 
 router.post('/user/logout', authenticate, (req, res) => {
@@ -192,16 +189,21 @@ router.put('/user', (req, res) => {
         return res.status(400).send("Tarkista tiedot")
     }
 
-    db.serialize(() => {
+    try{
+        db.serialize(() => {
 
-        const stmt = db.prepare("UPDATE user SET username = ?, age = ?, role = ? WHERE id = ?")
+            const stmt = db.prepare("UPDATE user SET username = ?, age = ?, role = ? WHERE id = ?")
 
-        stmt.run(username, age, role, id)
+            stmt.run(username, age, role, id)
 
-        stmt.finalize()
+            stmt.finalize()
 
-        res.send('Käyttäjä päivitetty onnistuneesti')
-    })
+            res.send('Käyttäjä päivitetty onnistuneesti')
+        })
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 })
 
 /*
@@ -219,16 +221,20 @@ router.patch('/user', (req, res) => {
 router.delete('/user/:id', (req, res) => {
     const id = req.params.id
 
-    db.run("DELETE FROM user WHERE id = ?", [id], (err) => {
+    try{
+        db.run("DELETE FROM user WHERE id = ?", [id], (err) => {
 
-        if (err) {
-            return res.status(404).send()
-        }
+            if (err) {
+                return res.status(404).send()
+            }
 
-        res.send("Käyttäjätili poistettu onnistuneesti")
+            res.send("Käyttäjätili poistettu onnistuneesti")
 
-    })
-
+        })
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 })
 
 /*
@@ -238,27 +244,37 @@ router.delete('/user/:id', (req, res) => {
 router.get('/note', authenticate, (req, res) => {
     const userId = req.userData.id;
 
-    db.all(`SELECT * FROM note WHERE userId = ?`, [userId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(200).json(rows);
-    });
+    try{
+        db.all(`SELECT * FROM note WHERE userId = ?`, [userId], (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.status(200).json(rows);
+        });
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 });
 
 router.get('/note/:noteId', authenticate, (req, res) => {
     const noteId = req.params.noteId;
     const userId = req.userData.id;
 
-    db.get(`SELECT * FROM note WHERE id = ? AND userId = ?`, [noteId, userId], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (!row) {
-            return res.status(404).json({ error: "Note not found" });
-        }
-        res.status(200).json(row);
-    });
+    try{
+        db.get(`SELECT * FROM note WHERE id = ? AND userId = ?`, [noteId, userId], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (!row) {
+                return res.status(404).json({ error: "Note not found" });
+            }
+            res.status(200).json(row);
+        });
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 });
 
 /*
@@ -273,12 +289,17 @@ router.post('/note', authenticate, async (req, res) => {
         return res.status(400).send("Content is required");
     }
 
-    db.run(`INSERT INTO note (content, userId) VALUES (?, ?)`, [content, userId], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(201).json({ id: this.lastID });
-    });
+    try{
+        db.run(`INSERT INTO note (content, userId) VALUES (?, ?)`, [content, userId], function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.status(201).json({ id: this.lastID });
+        });
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 });
 
 /*
@@ -293,15 +314,20 @@ router.put('/note', authenticate, async (req, res) => {
         return res.status(400).send("Both ID and content are required");
     }
 
-    db.run(`UPDATE note SET content = ? WHERE id = ? AND userId = ?`, [content, id, userId], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ error: "Note not found" });
-        }
-        res.status(200).json({ id: id });
-    });
+    try{
+        db.run(`UPDATE note SET content = ? WHERE id = ? AND userId = ?`, [content, id, userId], function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ error: "Note not found" });
+            }
+            res.status(200).json({ id: id });
+        });
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 });
 
 /*
@@ -312,15 +338,20 @@ router.delete('/note/:noteId', authenticate, (req, res) => {
     const noteId = req.params.noteId;
     const userId = req.userData.id;
 
-    db.run(`DELETE FROM note WHERE id = ? AND userId = ?`, [noteId, userId], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ error: "Note not found" });
-        }
-        res.status(200).json({ message: "Note deleted successfully" });
-    });
+    try{
+        db.run(`DELETE FROM note WHERE id = ? AND userId = ?`, [noteId, userId], function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ error: "Note not found" });
+            }
+            res.status(200).json({ message: "Note deleted successfully" });
+        });
+    }
+    catch(err){
+        return res.status(500).send('Server error')
+    }
 });
 
 app.use('/api/v1', router)
