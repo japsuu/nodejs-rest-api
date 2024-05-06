@@ -118,6 +118,13 @@ async function fetchAndDisplayNotes() {
         notes.forEach(note => {
             const li = document.createElement('LI');
             li.innerText = note.content;
+
+            // Create delete button
+            const deleteButton = document.createElement('BUTTON');
+            deleteButton.innerText = 'Delete';
+            deleteButton.addEventListener('click', () => deleteNoteHandler(note.id));
+
+            li.append(deleteButton);
             noteList.append(li);
         });
     } catch (error) {
@@ -255,7 +262,7 @@ async function submitNoteHandler(event) {
 
     try {
         await createNote(content);
-        alert('Note created successfully');
+        console.info('Note created successfully');
 
         // Clear the form
         document.getElementById('noteContent').value = '';
@@ -265,6 +272,27 @@ async function submitNoteHandler(event) {
     } catch (error) {
         console.error(error);
         alert('Note creation failed');
+    }
+}
+
+async function deleteNoteHandler(noteId) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/v1/note/${noteId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            console.error('Note deletion failed');
+        }
+
+        console.log('Note deleted successfully');
+
+        // Fetch and display notes
+        await fetchAndDisplayNotes();
+    } catch (error) {
+        console.error(error);
+        alert('Note deletion failed');
     }
 }
 
