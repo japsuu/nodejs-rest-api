@@ -83,6 +83,49 @@ async function createUser(username, password, age, role) {
     console.log('User created successfully');
 }
 
+async function createNote(content) {
+    const response = await fetch('http://localhost:3000/api/v1/note', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: content,
+        }),
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error('Note creation failed');
+    }
+
+    console.log('Note created successfully');
+}
+
+async function fetchAndDisplayNotes() {
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/note', {
+            credentials: 'include',
+        });
+
+        const notes = await response.json()
+
+        // Clear the note list
+        const noteList = document.getElementById('noteList');
+        noteList.innerHTML = '';
+
+        // Add each note to the note list
+        notes.forEach(note => {
+            const li = document.createElement('LI');
+            li.innerText = note.content;
+            noteList.append(li);
+        });
+    } catch (error) {
+        console.log(error);
+        alert("Error fetching notes");
+    }
+}
+
 async function logoutButtonHandler(event) {
     event.preventDefault();
     const response = await fetch('http://localhost:3000/api/v1/user/logout', {
@@ -206,9 +249,47 @@ async function getUsersButtonHandler(event) {
     }
 }
 
+async function submitNoteHandler(event) {
+    event.preventDefault();
+    const content = document.getElementById('noteContent').value;
+
+    try {
+        await createNote(content);
+        alert('Note created successfully');
+
+        // Clear the form
+        document.getElementById('noteContent').value = '';
+
+        // Fetch and display notes
+        await fetchAndDisplayNotes();
+    } catch (error) {
+        console.error(error);
+        alert('Note creation failed');
+    }
+}
+
 // Page construction
-function constructPage(isLoggedIn, role){
-    if (isLoggedIn){
+async function constructPage(isLoggedIn, role) {
+    if (isLoggedIn) {
+        // Create note form
+        const noteForm = document.createElement('FORM');
+        noteForm.innerHTML = `
+        <textarea id="noteContent" placeholder="Note content"></textarea>
+        <button type="submit">Create Note</button>
+        `;
+        document.body.append(noteForm);
+
+        // Create note list
+        const noteList = document.createElement('UL');
+        noteList.id = 'noteList';
+        document.body.append(noteList);
+
+        // Handle note form submission
+        noteForm.addEventListener('submit', submitNoteHandler);
+
+        // Fetch and display notes
+        await fetchAndDisplayNotes();
+
         // Show getUsers button only if the user is an admin
         if (role === 'admin') {
             const getUsersButton = document.createElement('BUTTON');
@@ -260,5 +341,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     console.log("Login state: ", loginState)
 
-    constructPage(loginState.isLoggedIn, loginState.role)
+    await constructPage(loginState.isLoggedIn, loginState.role)
 });
