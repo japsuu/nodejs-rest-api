@@ -117,14 +117,41 @@ async function fetchAndDisplayNotes() {
         // Add each note to the note list
         notes.forEach(note => {
             const li = document.createElement('LI');
-            li.innerText = note.content;
+            //li.innerText = note.content;
+
+            // Create a div for the buttons
+            const buttonDiv = document.createElement('DIV');
+
+            // Create update form
+            const updateForm = document.createElement('FORM');
+            updateForm.className = 'inlineElement';
+            const updateInput = document.createElement('TEXTAREA');
+            updateInput.value = note.content;
+            const updateButton = document.createElement('BUTTON');
+            updateButton.innerText = 'Update';
+            updateButton.type = 'submit';
+            updateForm.append(updateInput, updateButton);
+
+            updateForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                updateNoteHandler(note.id, updateInput.value);
+                updateButton.style.backgroundColor = "";
+            });
+
+            updateInput.addEventListener('input', () => {
+                updateButton.style.backgroundColor = "red";
+            });
+
+            buttonDiv.append(updateForm);
 
             // Create delete button
             const deleteButton = document.createElement('BUTTON');
             deleteButton.innerText = 'Delete';
+            deleteButton.className = 'inlineElement';
             deleteButton.addEventListener('click', () => deleteNoteHandler(note.id));
 
-            li.append(deleteButton);
+            buttonDiv.append(deleteButton);
+            li.append(buttonDiv);
             noteList.append(li);
         });
     } catch (error) {
@@ -292,7 +319,6 @@ async function submitNoteHandler(event) {
 
     try {
         await createNote(content);
-        console.info('Note created successfully');
 
         // Clear the form
         document.getElementById('noteContent').value = '';
@@ -302,6 +328,34 @@ async function submitNoteHandler(event) {
     } catch (error) {
         console.error(error);
         alert('Note creation failed');
+    }
+}
+
+async function updateNoteHandler(noteId, newContent) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/v1/note`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: noteId,
+                content: newContent,
+            }),
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            console.error('Note update failed');
+        }
+
+        console.log('Note updated successfully');
+
+        // Fetch and display notes again
+        await fetchAndDisplayNotes();
+    } catch (error) {
+        console.error(error);
+        alert('Note update failed');
     }
 }
 

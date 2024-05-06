@@ -1,0 +1,7 @@
+.inlineElement {
+    display: inline-block;
+}
+
+#noteList li {
+    padding: 10px 0;
+}

@@ -24,6 +24,8 @@ The server is now running on `http://localhost:3000`.
 
 ### Login view
 
+![Login view](./docs/login.png)
+
 #### Registering a new user
 
 In the web-ui, fill the form with your desired username, password, age and role, and click the "Register" button.
@@ -34,6 +36,8 @@ In the web-ui, fill the form with your desired username, password, age and role,
 Fill the login form with your username and password, and click the "Login" button.
 
 ### Notes view
+
+![Notes view](./docs/notes.png)
 
 Once logged in, you will be redirected to the notes view. Here you can create, edit and delete notes.
 
