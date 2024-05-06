@@ -1,5 +1,36 @@
 
+// Helper functions
+async function getLoginState() {
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/user/account', {
+            method: 'GET',
+            credentials: 'include',
+        });
+
+        if (response.status === 200) {
+            // Get the user role from the response
+            const userData = await response.json();
+            return {
+                isLoggedIn: true,
+                role: userData.role,
+            };
+        } else {
+            return {
+                isLoggedIn: false,
+                role: null,
+            };
+        }
+    }
+    catch (error) {
+        return {
+            isLoggedIn: false,
+            role: null,
+        };
+    }
+}
+
 async function login(username, password) {
+    console.log('Logging in as ' + username);
     const response = await fetch('http://localhost:3000/api/v1/user/login', {
         method: 'POST',
         headers: {
@@ -28,33 +59,7 @@ async function login(username, password) {
 
     const userData = await userDataResponse.json();
 
-    // Show getUsers button only if the user is an admin
-    if (userData.role === 'admin') {
-        const getUsersButton = document.createElement('BUTTON');
-        getUsersButton.innerText = "Get Users";
-        getUsersButton.addEventListener('click', getUsers);
-        document.body.append(getUsersButton);
-    } else {
-        const warning = document.createElement('P');
-        warning.innerText = "Only admin accounts can view all users.";
-        document.body.append(warning);
-    }
-}
-
-async function logout() {
-    const response = await fetch('http://localhost:3000/api/v1/user/logout', {
-        method: 'POST',
-        credentials: 'include',
-    });
-
-    if (!response.ok) {
-        throw new Error('Logout failed');
-    }
-
-    console.log('Logged out successfully');
-
-    // Reload the page after logout
-    location.reload();
+    return userData.role;
 }
 
 async function createUser(username, password, age, role) {
@@ -78,7 +83,59 @@ async function createUser(username, password, age, role) {
     console.log('User created successfully');
 }
 
-async function getUsers(){
+async function logoutButtonHandler(event) {
+    event.preventDefault();
+    const response = await fetch('http://localhost:3000/api/v1/user/logout', {
+        method: 'POST',
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error('Logout failed');
+    }
+
+    console.log('Logged out successfully');
+
+    // Reload the page after logout
+    location.reload();
+}
+
+// Event handlers
+async function submitLoginHandler(event) {
+    event.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    let role;
+
+    try {
+        role = await login(username, password);
+        console.log("Logged in as: " + role)
+
+        // Reload the page to update the UI
+        location.reload();
+    } catch (error) {
+        console.warn('Login failed');
+    }
+}
+
+async function userCreationHandler(event) {
+    event.preventDefault();
+    const username = document.getElementById('new_username').value;
+    const password = document.getElementById('new_password').value;
+    const age = document.getElementById('new_age').value;
+    const role = document.getElementById('new_role').value;
+
+    try {
+        await createUser(username, password, age, role);
+        alert('User created successfully');
+    } catch (error) {
+        console.error(error);
+        alert('User creation failed');
+    }
+}
+
+async function getUsersButtonHandler(event) {
+    event.preventDefault();
     try {
         const response = await fetch('http://localhost:3000/api/v1/user', {
             credentials: 'include',
@@ -86,7 +143,11 @@ async function getUsers(){
 
         const data = await response.json()
 
-        console.log(data)
+        // If a table exists, remove it
+        const extTable = document.querySelector('TABLE')
+        if (extTable) {
+            extTable.remove()
+        }
 
         // Create a table to show the data
         const table = document.createElement('TABLE')
@@ -143,67 +204,61 @@ async function getUsers(){
         // Show an alert if there is an error
         alert("Virhe käyttäjien hakemisessa (oletko kirjautunut sisään?)")
     }
-
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Create login form
-    const loginForm = document.createElement('FORM');
-    loginForm.innerHTML = `
+// Page construction
+function constructPage(isLoggedIn, role){
+    if (isLoggedIn){
+        // Show getUsers button only if the user is an admin
+        if (role === 'admin') {
+            const getUsersButton = document.createElement('BUTTON');
+            getUsersButton.innerText = "Get Users";
+            getUsersButton.addEventListener('click', getUsersButtonHandler);
+            document.body.append(getUsersButton);
+        } else {
+            const warning = document.createElement('P');
+            warning.innerText = "Only admin accounts can view all users.";
+            document.body.append(warning);
+        }
+
+        // Create logout button
+        const logoutButton = document.createElement('BUTTON');
+        logoutButton.innerText = "Logout";
+        logoutButton.addEventListener('click', logoutButtonHandler);
+        document.body.append(logoutButton);
+    } else {
+        // Create login form
+        const loginForm = document.createElement('FORM');
+        loginForm.innerHTML = `
         <input type="text" id="username" placeholder="Username">
         <input type="password" id="password" placeholder="Password">
         <button type="submit">Login</button>
-    `;
-    document.body.append(loginForm);
+        `;
+        document.body.append(loginForm);
 
-    // Handle login form submission
-    loginForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+        // Handle login form submission
+        loginForm.addEventListener('submit', submitLoginHandler);
 
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-
-        try {
-            await login(username, password);
-            alert('Logged in successfully');
-        } catch (error) {
-            console.error(error);
-            alert('Login failed');
-        }
-    });
-
-    // Create user form
-    const createUserForm = document.createElement('FORM');
-    createUserForm.innerHTML = `
+        // Create signup form
+        const createUserForm = document.createElement('FORM');
+        createUserForm.innerHTML = `
         <input type="text" id="new_username" placeholder="New Username">
         <input type="password" id="new_password" placeholder="New Password">
         <input type="number" id="new_age" placeholder="Age">
         <input type="text" id="new_role" placeholder="Role">
         <button type="submit">Create User</button>
-    `;
-    document.body.append(createUserForm);
+        `;
+        document.body.append(createUserForm);
 
-    // Handle user creation form submission
-    createUserForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+        // Handle user creation form submission
+        createUserForm.addEventListener('submit', userCreationHandler);
+    }
+}
 
-        const username = document.getElementById('new_username').value;
-        const password = document.getElementById('new_password').value;
-        const age = document.getElementById('new_age').value;
-        const role = document.getElementById('new_role').value;
+document.addEventListener('DOMContentLoaded', async () => {
+    const loginState = await getLoginState();
 
-        try {
-            await createUser(username, password, age, role);
-            alert('User created successfully');
-        } catch (error) {
-            console.error(error);
-            alert('User creation failed');
-        }
-    });
+    console.log("Login state: ", loginState)
 
-    // Create logout button
-    const logoutButton = document.createElement('BUTTON');
-    logoutButton.innerText = "Logout";
-    logoutButton.addEventListener('click', logout);
-    document.body.append(logoutButton);
+    constructPage(loginState.isLoggedIn, loginState.role)
 });
