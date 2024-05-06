@@ -133,23 +133,6 @@ async function fetchAndDisplayNotes() {
     }
 }
 
-async function logoutButtonHandler(event) {
-    event.preventDefault();
-    const response = await fetch('http://localhost:3000/api/v1/user/logout', {
-        method: 'POST',
-        credentials: 'include',
-    });
-
-    if (!response.ok) {
-        throw new Error('Logout failed');
-    }
-
-    console.log('Logged out successfully');
-
-    // Reload the page after logout
-    location.reload();
-}
-
 // Event handlers
 async function submitLoginHandler(event) {
     event.preventDefault();
@@ -168,6 +151,23 @@ async function submitLoginHandler(event) {
     }
 }
 
+async function logoutHandler(event) {
+    event.preventDefault();
+    const response = await fetch('http://localhost:3000/api/v1/user/logout', {
+        method: 'POST',
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error('Logout failed');
+    }
+
+    console.log('Logged out successfully');
+
+    // Reload the page after logout
+    location.reload();
+}
+
 async function userCreationHandler(event) {
     event.preventDefault();
     const username = document.getElementById('new_username').value;
@@ -184,8 +184,29 @@ async function userCreationHandler(event) {
     }
 }
 
-async function getUsersButtonHandler(event) {
-    event.preventDefault();
+async function deleteUserHandler(userId) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/v1/user/${userId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            console.error('User deletion failed');
+        }
+
+        console.log('User deleted successfully');
+
+        // Fetch and display users again
+        await getUsersHandler();
+    } catch (error) {
+        console.error(error);
+        alert('User deletion failed');
+    }
+}
+
+async function getUsersHandler(event) {
+    if (event) event.preventDefault();
     try {
         const response = await fetch('http://localhost:3000/api/v1/user', {
             credentials: 'include',
@@ -217,7 +238,10 @@ async function getUsersButtonHandler(event) {
         const th4 = document.createElement('TH')
         th4.innerText = "Role"
 
-        tr.append(th1, th2, th3, th4)
+        const th5 = document.createElement('TH')
+        th5.innerText = "Actions"
+
+        tr.append(th1, th2, th3, th4, th5)
 
         thead.append(tr)
 
@@ -238,7 +262,13 @@ async function getUsersButtonHandler(event) {
             const td4 = document.createElement('TD')
             td4.innerText = user.role
 
-            tr.append(td1, td2, td3, td4)
+            const td5 = document.createElement('TD')
+            const deleteButton = document.createElement('BUTTON');
+            deleteButton.innerText = 'Delete';
+            deleteButton.addEventListener('click', () => deleteUserHandler(user.id));
+            td5.append(deleteButton);
+
+            tr.append(td1, td2, td3, td4, td5)
 
             tbody.append(tr)
 
@@ -252,7 +282,7 @@ async function getUsersButtonHandler(event) {
         console.log(error)
 
         // Show an alert if there is an error
-        alert("Virhe käyttäjien hakemisessa (oletko kirjautunut sisään?)")
+        alert("Error fetching users (are you logged in?)")
     }
 }
 
@@ -322,7 +352,7 @@ async function constructPage(isLoggedIn, role) {
         if (role === 'admin') {
             const getUsersButton = document.createElement('BUTTON');
             getUsersButton.innerText = "Get Users";
-            getUsersButton.addEventListener('click', getUsersButtonHandler);
+            getUsersButton.addEventListener('click', getUsersHandler);
             document.body.append(getUsersButton);
         } else {
             const warning = document.createElement('P');
@@ -333,7 +363,7 @@ async function constructPage(isLoggedIn, role) {
         // Create logout button
         const logoutButton = document.createElement('BUTTON');
         logoutButton.innerText = "Logout";
-        logoutButton.addEventListener('click', logoutButtonHandler);
+        logoutButton.addEventListener('click', logoutHandler);
         document.body.append(logoutButton);
     } else {
         // Create login form

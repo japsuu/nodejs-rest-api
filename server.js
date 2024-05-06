@@ -180,7 +180,7 @@ router.post('/user/logout', authenticate, (req, res) => {
     USER PUT ENDPOINTS
  */
 
-router.put('/user', (req, res) => {
+router.put('/user', authenticate, adminOnly, (req, res) => {
 
 
     const { username, age, id, role } = req.body
@@ -210,7 +210,7 @@ router.put('/user', (req, res) => {
     USER PATCH ENDPOINTS
  */
 
-router.patch('/user', (req, res) => {
+router.patch('/user', authenticate, adminOnly, (req, res) => {
     res.send('Käyttäjän ikä päivitetty onnistuneesti')
 })
 
@@ -218,7 +218,7 @@ router.patch('/user', (req, res) => {
     USER DELETE ENDPOINTS
  */
 
-router.delete('/user/:id', (req, res) => {
+router.delete('/user/:id', authenticate, adminOnly, (req, res) => {
     const id = req.params.id
 
     try{
